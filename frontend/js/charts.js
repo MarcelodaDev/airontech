@@ -78,11 +78,11 @@ function renderUnivariateChart(labels, data, type = 'bar', title = 'Distribució
 
 /**
  * Renderiza el gráfico de Exploración Bivariada (Pestaña: Bivariado)
- * @param {Array} dataPoints - Array de objetos en formato {x: valor, y: valor}
+ * @param {Object} response - Configuración y datos devueltos por la API (/api/bivariate)
  * @param {String} xLabel - Nombre de la variable X
  * @param {String} yLabel - Nombre de la variable Y
  */
-function renderBivariateChart(dataPoints, xLabel, yLabel) {
+function renderBivariateChart(response, xLabel, yLabel) {
     const canvas = document.getElementById('bivariateChart');
     if (!canvas) return;
 
@@ -93,46 +93,102 @@ function renderBivariateChart(dataPoints, xLabel, yLabel) {
         bivariateChartInstance.destroy();
     }
 
-    bivariateChartInstance = new Chart(ctx, {
-        type: 'scatter', // Gráfico de dispersión
-        data: {
-            datasets: [{
-                label: `Correlación: ${xLabel} vs ${yLabel}`,
-                data: dataPoints,
-                backgroundColor: chartTheme.primary,
-                borderColor: chartTheme.primaryBorder,
-                borderWidth: 1,
-                pointRadius: 6,           // Tamaño de los puntos
-                pointHoverRadius: 9,      // Tamaño al pasar el ratón
-                pointHoverBackgroundColor: chartTheme.secondary
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }, // No necesitamos leyenda para un solo dataset aquí
-                tooltip: {
-                    backgroundColor: 'rgba(26, 44, 62, 0.9)',
-                    titleFont: { family: chartTheme.fontFamily },
-                    bodyFont: { family: chartTheme.fontFamily },
-                    callbacks: {
-                        label: (context) => ` ${xLabel}: ${context.parsed.x} | ${yLabel}: ${context.parsed.y}`
+    const chartType = response.type;
+
+    if (chartType === 'scatter') {
+        bivariateChartInstance = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: `Correlación: ${xLabel} vs ${yLabel}`,
+                    data: response.data,
+                    backgroundColor: chartTheme.primary,
+                    borderColor: chartTheme.primaryBorder,
+                    borderWidth: 1,
+                    pointRadius: 6,
+                    pointHoverRadius: 9,
+                    pointHoverBackgroundColor: chartTheme.secondary
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(26, 44, 62, 0.9)',
+                        titleFont: { family: chartTheme.fontFamily },
+                        bodyFont: { family: chartTheme.fontFamily },
+                        callbacks: {
+                            label: (context) => ` ${xLabel}: ${context.parsed.x} | ${yLabel}: ${context.parsed.y}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: xLabel, font: { family: chartTheme.fontFamily, weight: 'bold' } },
+                        grid: { color: chartTheme.gridLines }
+                    },
+                    y: {
+                        title: { display: true, text: yLabel, font: { family: chartTheme.fontFamily, weight: 'bold' } },
+                        grid: { color: chartTheme.gridLines }
                     }
                 }
+            }
+        });
+    } else if (chartType === 'stacked_bar') {
+        bivariateChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: response.labels,
+                datasets: response.datasets.map((ds, i) => {
+                    const colors = [chartTheme.primary, chartTheme.secondary, '#e25a5a', '#34c38f', '#f1b44c', '#50a5f1'];
+                    return {
+                        label: ds.label,
+                        data: ds.data,
+                        backgroundColor: colors[i % colors.length]
+                    };
+                })
             },
-            scales: {
-                x: {
-                    title: { display: true, text: xLabel, font: { family: chartTheme.fontFamily, weight: 'bold' } },
-                    grid: { color: chartTheme.gridLines }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: true, position: 'top', labels: { font: { family: chartTheme.fontFamily } } },
+                    title: { display: true, text: `Distribución de ${yLabel} por ${xLabel}` }
                 },
-                y: {
-                    title: { display: true, text: yLabel, font: { family: chartTheme.fontFamily, weight: 'bold' } },
-                    grid: { color: chartTheme.gridLines }
+                scales: {
+                    x: { stacked: true, title: { display: true, text: xLabel } },
+                    y: { stacked: true, title: { display: true, text: "Frecuencia / Casos" } }
                 }
             }
-        }
-    });
+        });
+    } else if (chartType === 'bar') {
+        bivariateChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: response.labels,
+                datasets: [{
+                    label: response.y_label,
+                    data: response.data,
+                    backgroundColor: chartTheme.primary,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: true, position: 'top' },
+                    title: { display: true, text: `${response.y_label} vs ${response.x_label}` }
+                },
+                scales: {
+                    x: { title: { display: true, text: response.x_label } },
+                    y: { title: { display: true, text: response.y_label }, beginAtZero: true }
+                }
+            }
+        });
+    }
 }
 /**
  * Renderiza el Mapa de Calor (Matriz de Correlación) usando CSS Grid

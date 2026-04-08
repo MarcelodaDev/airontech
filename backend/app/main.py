@@ -132,23 +132,120 @@ async def correlation():
 @app.get("/api/bivariate")
 async def bivariate(col_x: str, col_y: str):
     if not os.path.exists(PROCESSED_DATA):
-        return []
+        return {}
     df = pd.read_csv(PROCESSED_DATA)
     if col_x not in df.columns or col_y not in df.columns:
         raise HTTPException(status_code=400, detail="Columna(s) no existe(n)")
     
-    # Manejar "SIN_DATO" u otros en numéricos. Convertir a numérico donde aplicable
     df_clean = df[[col_x, col_y]].dropna()
-    df_clean[col_x] = pd.to_numeric(df_clean[col_x], errors='coerce')
-    df_clean[col_y] = pd.to_numeric(df_clean[col_y], errors='coerce')
-    df_clean = df_clean.dropna()
+    if df_clean.empty:
+        return {"error": "Sin datos"}
 
-    # Si pasamos demasiados puntos, muestrear a 1000 para graficar rápido
-    if len(df_clean) > 1000:
-        df_clean = df_clean.sample(1000)
+    is_x_num = pd.api.types.is_numeric_dtype(df_clean[col_x])
+    is_y_num = pd.api.types.is_numeric_dtype(df_clean[col_y])
 
-    records = df_clean.rename(columns={col_x: "x", col_y: "y"}).to_dict(orient="records")
-    return records
+    # Convertir a string si no son numéricos, para evitar fallos de agrupamiento
+    if not is_x_num:
+        df_clean[col_x] = df_clean[col_x].astype(str)
+    if not is_y_num:
+        df_clean[col_y] = df_clean[col_y].astype(str)
+
+    if is_x_num and is_y_num:
+        # Scatter Numérico vs Numérico
+        if len(df_clean) > 1000:
+            df_clean = df_clean.sample(1000)
+        records = df_clean.rename(columns={col_x: "x", col_y: "y"}).to_dict(orient="records")
+        return {"type": "scatter", "data": records}
+        
+    elif not is_x_num and not is_y_num:
+        # Categorico vs Categorico -> Cantidades (Stacked Bar)
+        top_x = df_clean[col_x].value_counts().head(10).index
+        top_y = df_clean[col_y].value_counts().head(6).index
+        
+        filtered = df_clean[df_clean[col_x].isin(top_x) & df_clean[col_y].isin(top_y)]
+        grouped = filtered.groupby([col_x, col_y]).size().unstack(fill_value=0)
+        
+        labels_x = grouped.index.tolist()
+        datasets = []
+        for y_cat in grouped.columns:
+            datasets.append({
+                "label": str(y_cat),
+                "data": grouped[y_cat].tolist()
+            })
+            
+        return {
+            "type": "stacked_bar",
+            "labels": [str(l) for l in labels_x],
+            "datasets": datasets
+        }
+        
+    else:
+        # Mixto: Uno categórico y otro numérico -> Promedio (Bar)
+        cat_col = col_x if not is_x_num else col_y
+        num_col = col_y if not is_x_num else col_x
+        
+        top_cat = df_clean[cat_col].value_counts().head(12).index
+        filtered = df_clean[df_clean[cat_col].isin(top_cat)]
+        
+        grouped = filtered.groupby(cat_col)[num_col].mean().sort_values(ascending=False)
+        return {
+            "type": "bar",
+            "labels": [str(l) for l in grouped.index],
+            "data": grouped.values.tolist(),
+            "x_label": cat_col,
+            "y_label": f"Promedio de {num_col}"
+        }
+
+@app.get("/api/storytelling")
+async def storytelling():
+    if not os.path.exists(PROCESSED_DATA):
+        return {"html": "<p>Aún no hay datos procesados.</p>"}
+    
+    try:
+        df = pd.read_csv(PROCESSED_DATA)
+        # Normalización básica para búsqueda
+        cols_lower = {c.lower(): c for c in df.columns}
+        
+        prov_col = cols_lower.get("provincia", cols_lower.get("provincias", None))
+        canton_col = cols_lower.get("cantón", cols_lower.get("canton", cols_lower.get("cantones", None)))
+        
+        insights = ""
+        
+        if prov_col:
+            top_prov = df[prov_col].value_counts().head(5)
+            total = len(df)
+            top_prov_sum = top_prov.sum()
+            perc = (top_prov_sum / total) * 100 if total > 0 else 0
+            
+            insights += f"""
+            <div class='insight-card'>
+                <h4 style="color: #2c7da0; margin-bottom: 0.5rem;">🚨 Concentración Provincial de Riesgo</h4>
+                <p>Las 5 provincias con mayor incidencia criminal agrupan el <strong>{perc:.1f}%</strong> del total a nivel nacional ({top_prov_sum} de {total} casos registrados).
+                El ranking está liderado por: <strong>{', '.join(top_prov.index.tolist())}</strong>. 
+                Esto confirma el patrón de alta violencia geográficamente focalizada que demanda la redistribución de recursos de seguridad.</p>
+            </div>
+            """
+            
+        if canton_col:
+            top_canton = df[canton_col].value_counts().head(3)
+            # Solo si encontramos al menos tres cantones válidos
+            if len(top_canton) >= 3:
+                insights += f"""
+                <div class='insight-card' style="margin-top: 1rem;">
+                    <h4 style="color: #2c7da0; margin-bottom: 0.5rem;">⚠️ Cantones Críticos e Intervención</h4>
+                    <p>Tras analizar transversalmente la distribución, los 3 cantones de mayor riesgo absoluto para despliegue táctico-policial preventivo son: 
+                    <strong>{top_canton.index[0]}</strong> ({top_canton.iloc[0]} eventos), 
+                    <strong>{top_canton.index[1]}</strong> ({top_canton.iloc[1]} eventos) y 
+                    <strong>{top_canton.index[2]}</strong> ({top_canton.iloc[2]} eventos).</p>
+                </div>
+                """
+        
+        if not insights:
+            insights = "<p>El dataset procesado no contenía columnas geográficas claras ('Provincia', 'Cantón') para emitir conclusiones geoespaciales precisas. Utiliza el módulo Bivariado Dinámico para exploraciones personalizadas.</p>"
+            
+        return {"html": insights}
+    except Exception as e:
+        return {"html": f"<p style='color:red;'>Error generando IA insights: {str(e)}</p>"}
 
 @app.post("/api/procesar-dataset")
 async def procesar_dataset():

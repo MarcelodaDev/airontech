@@ -193,28 +193,60 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`${HOST}/api/bivariate?col_x=${x}&col_y=${y}`);
             const data = await res.json();
             if (window.renderBivariateChart) {
-                window.renderBivariateChart(data, x, y);
+                if (data.error || (data.data && data.data.length === 0) || (data.labels && data.labels.length === 0)) {
+                    alert("No hay suficientes datos válidos para cruzar estas dos columnas.");
+                } else {
+                    window.renderBivariateChart(data, x, y);
+                }
             }
         } catch(e) { console.error(e); }
     });
 
+    let mapInstance = null;
+    let heatLayer = null;
+
+    document.querySelector('[data-target="mapa"]').addEventListener('click', async () => {
+        if (!mapInstance) {
+            mapInstance = L.map('mapContainer').setView([-1.8312, -78.1834], 6);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(mapInstance);
+        }
+
+        setTimeout(() => mapInstance.invalidateSize(), 300);
+
+        try {
+            const res = await fetch(`${HOST}/api/datos-mapa`);
+            if(!res.ok) throw new Error("Error fetching map data");
+            const mapData = await res.json();
+            
+            if (heatLayer) {
+                mapInstance.removeLayer(heatLayer);
+            }
+
+            const heatPoints = mapData.map(d => [parseFloat(d.lat), parseFloat(d.lon), 1]);
+            heatLayer = L.heatLayer(heatPoints, {
+                radius: 20,
+                blur: 15,
+                maxZoom: 10,
+                gradient: {0.4: 'blue', 0.6: 'cyan', 0.7: 'lime', 0.8: 'yellow', 1.0: 'red'}
+            }).addTo(mapInstance);
+
+        } catch(e) {
+            console.error("Error cargando mapa", e);
+        }
+    });
+
     document.querySelector('[data-target="storytelling"]').addEventListener('click', async () => {
         const sb = document.getElementById('storytellingBoard');
-        sb.innerHTML = '<p>Generando insights...</p>';
+        sb.innerHTML = '<p>Generando insights analíticos basados en la matriz geospacial...</p>';
         try {
-            const res = await fetch(`${HOST}/api/kpis`);
-            const kpi = await res.json();
-            sb.innerHTML = `
-                <div class="insight-card">
-                    <h4>Resumen del Dataset Automático</h4>
-                    <p>El dataset cargado contiene <strong>${kpi.total_filas}</strong> registros distribuidos a lo largo de <strong>${kpi.num_provincias}</strong> provincias. 
-                    Después del proceso de limpieza profunda, se encontraron un total de <strong>${kpi.nulos_totales}</strong> valores nulos residuales.
-                    Por favor, utiliza las pestañas de "EDA Interactiva" y "Bivariado Dinámico" para explorar a detalle la distribución de frecuencias y correlaciones entre las <strong>${kpi.total_columnas}</strong> columnas analizadas de manera cruzada.
-                    </p>
-                </div>
-            `;
+            const res = await fetch(`${HOST}/api/storytelling`);
+            const data = await res.json();
+            sb.innerHTML = data.html;
         } catch(e) {
             sb.innerHTML = '<p style="color:red">Error al generar storytelling.</p>';
+            console.error(e);
         }
     });
 
