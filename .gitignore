@@ -1,0 +1,34 @@
+# --- Python / Entorno Virtual ---
+# Ignora el entorno virtual para que otros lo instalen con requirements.txt
+backend/venv/
+backend/.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Datos (Seguridad y Tamaño) ---
+# Ignoramos los datos originales de Excel y los CSV temporales
+data/excel/*.xlsx
+data/excel/*.xls
+data/raw/*.csv
+
+# OPCIONAL: Si quieres que otros vean el resultado final, NO ignores data/processed.
+# Pero si el dataset es muy pesado (>50MB), actívalo:
+# data/processed/
+
+# --- Archivos Temporales de la API ---
+# Carpeta donde FastAPI guarda datasets intermedios
+backend/temp/
+temp/
+
+# --- Configuración de Editores / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Logs y Otros ---
+*.log
+.env

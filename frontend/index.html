@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma EDA & Multi-Agente</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="hero glass-card">
+            <h1>Plataforma de Análisis y Storytelling Estratégico</h1>
+            <p>Sube tu dataset para iniciar el pipeline de limpieza y análisis automatizado.</p>
+            
+            <div class="upload-section">
+                <div class="upload-section" id="dropZone">
+                <div class="drop-zone-content">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2c7da0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p>Arrastra y suelta tu dataset xlsx aquí<br>o <span>explora tus archivos</span></p>
+                    <input type="file" id="csvFileInput" accept=".csv" hidden>
+                </div>
+                <p id="fileNameDisplay" class="file-name-display"></p>
+                <button id="uploadBtn" class="btn-primary" disabled>Procesar Pipeline Múltiple</button>
+            </div>
+            </div>
+        </header>
+
+        <nav class="tabs-nav glass-card">
+            <button class="tab-btn active" data-target="resumen">Dashboard Resumen</button>
+            <button class="tab-btn" data-target="eda">EDA Interactiva</button>
+            <button class="tab-btn" data-target="bivariado">Bivariado Dinámico</button>
+            <button class="tab-btn" data-target="storytelling">Storytelling IA</button>
+        </nav>
+
+        <main class="tabs-content">
+            <section id="resumen" class="tab-pane active glass-card">
+                <h2>Métricas de Calidad (Pre y Post Limpieza)</h2>
+                <div class="kpi-grid" id="kpiContainer">
+                    <p>Esperando datos...</p>
+                </div>
+            </section>
+
+            <section id="eda" class="tab-pane glass-card">
+                <h2>Exploración Univariada</h2>
+                <select id="columnSelect" class="form-select">
+                    <option value="">Selecciona una columna...</option>
+                </select>
+                <div class="chart-container">
+                    <canvas id="univariateChart"></canvas>
+                </div>
+            </section>
+
+            <section id="bivariado" class="tab-pane glass-card">
+                <h2>Matriz de Correlación Global</h2>
+                <div id="heatmapContainer" class="heatmap-container">
+                    <p style="text-align: center; color: #6f8e9e;">Esperando datos para generar matriz...</p>
+                </div>
+
+                <hr style="border: 0; height: 1px; background: rgba(44, 125, 160, 0.2); margin: 2rem 0;">
+
+                <h2>Análisis Bivariado Específico</h2>
+                <div class="selectors">
+                    <select id="xSelect" class="form-select"><option>Variable X</option></select>
+                    <select id="ySelect" class="form-select"><option>Variable Y</option></select>
+                    <button id="correlateBtn" class="btn-secondary">Calcular Pearson</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="bivariateChart"></canvas>
+                </div>
+            </section>
+
+            <section id="storytelling" class="tab-pane glass-card">
+                <h2>Insights Ejecutivos Generados por IA</h2>
+                <div id="storytellingBoard" class="insight-board">
+                    </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/charts.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
