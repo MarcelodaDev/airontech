@@ -38,37 +38,31 @@ async def root():
 async def obtener_mapa():
     """Retorna datos georreferenciados para el mapa"""
     if not os.path.exists(PROCESSED_DATA):
-        raise HTTPException(status_code=404, detail="Archivo dataset_final.csv no encontrado. Ejecuta el procesamiento primero.")
-    if not os.path.exists(COORDS_DATA):
-        raise HTTPException(status_code=404, detail="Archivo coordenadas.json no encontrado.")
+        raise HTTPException(status_code=404, detail="Archivo dataset_final.csv no encontrado.")
 
     try:
-        # Cargar datos
         df = pd.read_csv(PROCESSED_DATA)
-        with open(COORDS_DATA, "r", encoding="utf-8") as f:
-            coords = json.load(f)
-
-        # Normalizar claves del JSON a mayúsculas para facilitar la búsqueda
-        coords_normalized = {k.upper().strip(): v for k, v in coords.items()}
-
-        map_data = []
-        for _, row in df.iterrows():
-            # Intentar obtener el cantón (debe coincidir con las llaves en coordenadas.json)
-            canton_name = str(row.get("Cantón", "")).strip().upper()
-            
-            if canton_name in coords_normalized:
-                pos = coords_normalized[canton_name]
-                map_data.append({
-                    "lat": pos["lat"],
-                    "lon": pos["lon"],
-                    "provincia": row.get("Provincia", "N/A"),
-                    "canton": row.get("Cantón", "N/A"),
-                    "tipo": row.get("Tipo de muerte", "N/A"),
-                    "arma": row.get("Arma", "N/A"),
-                    "fecha": str(row.get("Fecha", "N/A"))
-                })
         
-        return map_data
+        # Encontrar nombres de columnas
+        cols_lower = {c.lower(): c for c in df.columns}
+        lat_col = cols_lower.get("lat", cols_lower.get("latitud", None))
+        lon_col = cols_lower.get("lon", cols_lower.get("longitud", None))
+        
+        if not lat_col or not lon_col:
+            return []
+
+        df_map = df.dropna(subset=[lat_col, lon_col])
+        
+        # Para seguridad, asegurar formato numérico en frontend enviando números
+        # y limitamos las columnas para mayor rapidez
+        records = df_map[[lat_col, lon_col]].rename(columns={lat_col: "lat", lon_col: "lon"})
+        
+        # Opcional: convertir a numeric
+        records["lat"] = pd.to_numeric(records["lat"], errors="coerce")
+        records["lon"] = pd.to_numeric(records["lon"], errors="coerce")
+        records = records.dropna()
+
+        return records.to_dict(orient="records")
 
     except Exception as e:
         print(f"Error en /api/datos-mapa: {str(e)}")
