@@ -10,4 +10,5 @@ pip install -r requirements.txt
 ejecutar app.py en la carpeta backend/app/app.py
 # Iniciar la pagina
 Iniciar index.html en frontend
+# Datos 
 https://datosabiertos.presidencia.gob.ec/dataset/homicidios-intencionales
